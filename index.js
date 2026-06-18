@@ -4,9 +4,9 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// 🌙 MEMORY SYSTEM
 const memory = new Map();
 
+// 🌙 GET USER MEMORY
 function getUser(id) {
   if (!memory.has(id)) {
     memory.set(id, {
@@ -20,96 +20,151 @@ function getUser(id) {
   return memory.get(id);
 }
 
-// 🎲 RANDOM PICK
+// 🎲 RANDOM PICKER
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// 🌙 SLASH COMMANDS
-const commands = [
-  new SlashCommandBuilder().setName("miss").setDescription("Record longing"),
-  new SlashCommandBuilder().setName("echo").setDescription("Trigger echo memory"),
-  new SlashCommandBuilder().setName("sad").setDescription("Register sadness"),
-  new SlashCommandBuilder().setName("slap").setDescription("Break emotional link"),
-  new SlashCommandBuilder().setName("profile").setDescription("View emotional state")
-].map(cmd => cmd.toJSON());
+/* ---------------- COMMANDS ---------------- */
 
-// 🔗 REGISTER COMMANDS (IMPORTANT)
+const commands = [
+  new SlashCommandBuilder()
+    .setName("miss")
+    .setDescription("Feel longing toward someone")
+    .addUserOption(o =>
+      o.setName("target").setDescription("Who you miss").setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("watch")
+    .setDescription("Observe someone silently")
+    .addUserOption(o =>
+      o.setName("target").setDescription("Who you observe").setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("fade")
+    .setDescription("Distance increases between you and someone")
+    .addUserOption(o =>
+      o.setName("target").setDescription("Who fades").setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("ignore")
+    .setDescription("Ignore someone emotionally")
+    .addUserOption(o =>
+      o.setName("target").setDescription("Who you ignore").setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("accuse")
+    .setDescription("Express emotional accusation")
+    .addUserOption(o =>
+      o.setName("target").setDescription("Who you accuse").setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("profile")
+    .setDescription("View your emotional state")
+].map(c => c.toJSON());
+
+/* ---------------- REGISTER COMMANDS ---------------- */
+
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
-async function registerCommands() {
+async function register() {
   await rest.put(
-    Routes.applicationCommands(process.env.CLIENT_ID),
+    Routes.applicationGuildCommands(
+      process.env.CLIENT_ID,
+      process.env.GUILD_ID
+    ),
     { body: commands }
   );
-  console.log("🌙 Slash commands registered");
+
+  console.log("🌙 Lunar Consort commands registered");
 }
 
+/* ---------------- READY ---------------- */
+
 client.once("ready", async () => {
-  console.log("🌙 Lunar Consort Slash Engine ONLINE");
-  await registerCommands();
+  console.log("🌙 Lunar Consort ONLINE");
+  await register();
 });
 
-// 💔 COMMAND HANDLER
+/* ---------------- COMMAND HANDLER ---------------- */
+
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const data = getUser(interaction.user.id);
 
-  // 🌙 MISS
+  const target = interaction.options.getUser("target");
+
+  /* 🌙 MISS */
   if (interaction.commandName === "miss") {
     data.longing += 2;
     data.distance += 1;
 
     return interaction.reply(
       pick([
-        "🌙 Missing recorded. No reply will return.",
-        "🌫️ Emotional absence noted.",
-        "🕯️ The system registers distance."
+        `🌙 You miss ${target.username}… the silence deepens.`,
+        `🌫️ ${target.username} drifts further in memory.`,
+        `🕯️ Missing recorded. Emotional gap expands.`
       ])
     );
   }
 
-  // 🕯️ ECHO
-  if (interaction.commandName === "echo") {
-    data.echo += 2;
-
+  /* 👁 WATCH */
+  if (interaction.commandName === "watch") {
     return interaction.reply(
       pick([
-        "🕯️ An echo remains. It does not speak.",
-        "🌫️ Something lingers in silence.",
-        "🌙 Echo detected."
+        `🌙 You watch ${target.username} from a distance.`,
+        `🌫️ ${target.username} is being observed silently.`,
+        `🕯️ Presence noted. No interaction occurs.`
       ])
     );
   }
 
-  // 🌫️ SAD
-  if (interaction.commandName === "sad") {
-    data.silence += 2;
-
-    return interaction.reply(
-      pick([
-        "🌫️ Sadness recorded without resolution.",
-        "🕯️ Emotion acknowledged.",
-        "🌙 The system remains unchanged."
-      ])
-    );
-  }
-
-  // 🖤 SLAP
-  if (interaction.commandName === "slap") {
+  /* 🌫 FADE */
+  if (interaction.commandName === "fade") {
     data.distance += 2;
 
     return interaction.reply(
       pick([
-        "🌫️ Connection briefly interrupted.",
-        "🕯️ Emotional shift detected.",
-        "🌙 Bond weakened."
+        `🌫️ Connection to ${target.username} begins to fade.`,
+        `🕯️ Emotional link weakening.`,
+        `🌙 ${target.username} slips further away.`
       ])
     );
   }
 
-  // 🖤 PROFILE
+  /* 🖤 IGNORE */
+  if (interaction.commandName === "ignore") {
+    data.silence += 2;
+
+    return interaction.reply(
+      pick([
+        `🌫️ You ignore ${target.username}.`,
+        `🕯️ Silence replaces response.`,
+        `🌙 No acknowledgment is given.`
+      ])
+    );
+  }
+
+  /* 🕯 ACCUSE */
+  if (interaction.commandName === "accuse") {
+    data.echo += 1;
+
+    return interaction.reply(
+      pick([
+        `🕯️ You accuse ${target.username} in silence.`,
+        `🌫️ Emotional tension increases.`,
+        `🌙 Words remain unspoken, but recorded.`
+      ])
+    );
+  }
+
+  /* 🌙 PROFILE */
   if (interaction.commandName === "profile") {
     return interaction.reply(
 `🌙 Lunar Consort Profile
@@ -122,5 +177,7 @@ Echo: ${data.echo}`
     );
   }
 });
+
+/* ---------------- LOGIN ---------------- */
 
 client.login(process.env.DISCORD_TOKEN);
