@@ -3,9 +3,6 @@ require("dotenv").config();
 const {
   Client,
   GatewayIntentBits,
-  REST,
-  Routes,
-  SlashCommandBuilder,
   EmbedBuilder
 } = require("discord.js");
 
@@ -47,7 +44,7 @@ function makeEmbed(text) {
     .setTimestamp();
 }
 
-// 🌫️ REPLIES (SAFE)
+// 🌫️ RANDOM REPLIES
 const replies = {
   miss: [
     "🌙 You miss {target}. Silence grows heavier.",
@@ -115,6 +112,11 @@ function getReply(type, target) {
   const list = replies[type] || ["🌙 Silence answers instead."];
   return pick(list).replaceAll("{target}", name);
 }
+const {
+  REST,
+  Routes,
+  SlashCommandBuilder
+} = require("discord.js");
 
 // 📜 COMMANDS (16)
 const commands = [
@@ -146,25 +148,35 @@ const commands = [
     .toJSON()
 );
 
-// 🔗 REGISTER
+// 🔗 REGISTER (RUN ONCE ONLY SEPARATELY)
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 async function registerCommands() {
-  await rest.put(
-    Routes.applicationGuildCommands(
-      process.env.CLIENT_ID,
-      process.env.GUILD_ID
-    ),
-    { body: commands }
-  );
+  try {
+    console.log("🌙 Registering commands...");
 
-  console.log("🌙 Commands registered");
+    await rest.put(
+      Routes.applicationGuildCommands(
+        process.env.CLIENT_ID,
+        process.env.GUILD_ID
+      ),
+      { body: commands }
+    );
+
+    console.log("🌙 Commands registered");
+  } catch (err) {
+    console.error(err);
+  }
 }
 
-// 🌙 READY
-client.once("ready", async () => {
+/*
+👉 RUN THIS FILE ONCE MANUALLY:
+node register.js
+*/
+
+// 🌙 READY (NO REGISTER HERE)
+client.once("ready", () => {
   console.log("🌙 Lunar Consort ONLINE");
-  await registerCommands();
 });
 
 // 🎭 HANDLER
@@ -175,9 +187,8 @@ client.on("interactionCreate", async (interaction) => {
     const data = getUser(interaction.user.id);
     const cmd = interaction.commandName;
 
-    const target = interaction.options.getUser("target");
+    const target = interaction.options.getUser("target") ?? null;
 
-    // ⚠️ SAFE TARGET CHECK
     const needsTarget = [
       "miss","remember","yearn","watch","fade","ignore",
       "accuse","betray","confess","expose","resent","linger"
@@ -190,117 +201,68 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // 💔 MISS
+    // 💔 COMMANDS
     if (cmd === "miss") {
       data.longing++;
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("miss", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("miss", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 🕯 REMEMBER
     if (cmd === "remember") {
       data.memory++;
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("remember", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("remember", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 🌫 YEARN
     if (cmd === "yearn") {
       data.obsession++;
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("yearn", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("yearn", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 👁 WATCH
     if (cmd === "watch") {
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("watch", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("watch", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 🌫 FADE
     if (cmd === "fade") {
       data.distance++;
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("fade", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("fade", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 🖤 IGNORE
     if (cmd === "ignore") {
       data.silence++;
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("ignore", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("ignore", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 🕯 ACCUSE
     if (cmd === "accuse") {
       data.tension++;
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("accuse", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("accuse", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 🖤 BETRAY
     if (cmd === "betray") {
       data.betrayal++;
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("betray", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("betray", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // ✋ SLAP
     if (cmd === "slap") {
       return interaction.reply({ embeds: [makeEmbed(getReply("slap", target))] });
     }
 
-    // 🕯 ECHO
     if (cmd === "echo") {
       return interaction.reply({ embeds: [makeEmbed(getReply("echo", target))] });
     }
 
-    // 🕯 CONFESS
     if (cmd === "confess") {
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("confess", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("confess", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 🌫 EXPOSE
     if (cmd === "expose") {
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("expose", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("expose", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 🌑 RESENT
     if (cmd === "resent") {
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("resent", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("resent", target))], allowedMentions: { users: [target.id] } });
     }
 
-    // 🌫 LINGER
     if (cmd === "linger") {
-      return interaction.reply({
-        embeds: [makeEmbed(getReply("linger", target))],
-        allowedMentions: { users: target ? [target.id] : [] }
-      });
+      return interaction.reply({ embeds: [makeEmbed(getReply("linger", target))], allowedMentions: { users: [target.id] } });
     }
 
     // 📖 PROFILE
