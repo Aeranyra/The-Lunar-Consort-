@@ -12,7 +12,7 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// 🧠 MEMORY SYSTEM
+// 🧠 MEMORY
 const memory = new Map();
 
 function getUser(id) {
@@ -35,103 +35,83 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// 🌙 EMBED BUILDER
+// 🌙 EMBED
 function makeEmbed(text) {
   return new EmbedBuilder()
     .setTitle("🌙 Lunar Consort")
     .setDescription(text)
-    .setFooter({
-      text: "🕯️ The moon remembers what people pretend to forget."
-    })
+    .setFooter({ text: "🕯️ The moon remembers what people forget." })
     .setTimestamp();
 }
 
-// 🌙 COMMAND LIST (REGISTERED SLASH COMMANDS)
+// 📜 COMMANDS
 const commands = [
-
   new SlashCommandBuilder()
     .setName("miss")
     .setDescription("Feel longing toward someone")
     .addUserOption(o =>
-      o.setName("target")
-        .setDescription("Who you miss")
-        .setRequired(true)
+      o.setName("target").setDescription("Who you miss").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("remember")
     .setDescription("Recall a memory of someone")
     .addUserOption(o =>
-      o.setName("target")
-        .setDescription("Who you remember")
-        .setRequired(true)
+      o.setName("target").setDescription("Who you remember").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("yearn")
     .setDescription("Yearn for someone")
     .addUserOption(o =>
-      o.setName("target")
-        .setDescription("Who you yearn for")
-        .setRequired(true)
+      o.setName("target").setDescription("Who you yearn for").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("watch")
     .setDescription("Observe someone silently")
     .addUserOption(o =>
-      o.setName("target")
-        .setDescription("Who you observe")
-        .setRequired(true)
+      o.setName("target").setDescription("Who you watch").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("fade")
-    .setDescription("Distance increases between you and someone")
+    .setDescription("Distance increases")
     .addUserOption(o =>
-      o.setName("target")
-        .setDescription("Who fades")
-        .setRequired(true)
+      o.setName("target").setDescription("Who fades").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("ignore")
     .setDescription("Ignore someone emotionally")
     .addUserOption(o =>
-      o.setName("target")
-        .setDescription("Who you ignore")
-        .setRequired(true)
+      o.setName("target").setDescription("Who you ignore").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("accuse")
-    .setDescription("Express emotional accusation")
+    .setDescription("Express accusation")
     .addUserOption(o =>
-      o.setName("target")
-        .setDescription("Who you accuse")
-        .setRequired(true)
+      o.setName("target").setDescription("Who you accuse").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("betray")
     .setDescription("Break trust")
     .addUserOption(o =>
-      o.setName("target")
-        .setDescription("Who you betray")
-        .setRequired(true)
+      o.setName("target").setDescription("Who you betray").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("profile")
-    .setDescription("View your emotional state"),
+    .setDescription("View emotional state"),
 
   new SlashCommandBuilder()
     .setName("help")
-    .setDescription("View Lunar Consort commands")
-
+    .setDescription("View commands")
 ].map(c => c.toJSON());
 
-// 🔗 DISCORD REST REGISTER
+// 🔗 REGISTER COMMANDS
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 async function registerCommands() {
@@ -143,22 +123,23 @@ async function registerCommands() {
     { body: commands }
   );
 
-  console.log("🌙 Lunar Consort commands registered");
+  console.log("🌙 Commands registered");
 }
 
-// 🌙 READY EVENT
+// 🌙 READY
 client.once("ready", async () => {
   console.log("🌙 Lunar Consort ONLINE");
   await registerCommands();
 });
 
+// 🎭 COMMAND HANDLER
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const data = getUser(interaction.user.id);
   const target = interaction.options.getUser("target");
 
-  // 🎲 MISS
+  // 🌙 MISS
   if (interaction.commandName === "miss") {
     data.longing += 2;
     data.distance += 1;
@@ -168,9 +149,8 @@ client.on("interactionCreate", async (interaction) => {
         makeEmbed(
           pick([
             `🌙 You miss ${target}. The silence deepens.`,
-            `🌫️ Thoughts of ${target} drift further away.`,
-            `🕯️ Missing recorded. Emotional gap expands.`,
-            `🌙 The moon notes your longing for ${target}.`
+            `🌫️ Thoughts of ${target} drift away.`,
+            `🕯️ Missing recorded. Emotional gap expands.`
           ])
         )
       ],
@@ -187,9 +167,8 @@ client.on("interactionCreate", async (interaction) => {
         makeEmbed(
           pick([
             `🕯️ A memory of ${target} resurfaces.`,
-            `🌫️ Time refuses to erase ${target}.`,
-            `🌙 You remember ${target} too clearly.`,
-            `🖤 Something about ${target} remains unchanged.`
+            `🌙 Time refuses to erase ${target}.`,
+            `🌫️ You remember ${target} too clearly.`
           ])
         )
       ],
@@ -200,16 +179,14 @@ client.on("interactionCreate", async (interaction) => {
   // 🌫️ YEARN
   if (interaction.commandName === "yearn") {
     data.obsession += 2;
-    data.longing += 1;
 
     return interaction.reply({
       embeds: [
         makeEmbed(
           pick([
             `🌫️ You yearn for ${target}.`,
-            `🕯️ Desire for ${target} refuses to fade.`,
-            `🌙 The thought of ${target} lingers too long.`,
-            `🖤 Some feelings become heavier over time.`
+            `🕯️ Desire refuses to fade.`,
+            `🌙 The thought of ${target} lingers.`
           ])
         )
       ],
@@ -226,9 +203,8 @@ client.on("interactionCreate", async (interaction) => {
         makeEmbed(
           pick([
             `👁️ You watch ${target} silently.`,
-            `🌫️ ${target} is observed from afar.`,
-            `🕯️ Presence noted. No interaction occurs.`,
-            `🌙 You remain unseen while observing ${target}.`
+            `🌫️ ${target} is observed.`,
+            `🕯️ No interaction occurs.`
           ])
         )
       ],
@@ -244,10 +220,9 @@ client.on("interactionCreate", async (interaction) => {
       embeds: [
         makeEmbed(
           pick([
-            `🌫️ Your connection with ${target} fades.`,
-            `🕯️ Emotional distance increases.`,
-            `🌙 ${target} slips further away.`,
-            `🖤 Something between you dissolves quietly.`
+            `🌫️ Connection with ${target} fades.`,
+            `🕯️ Emotional distance grows.`,
+            `🌙 ${target} slips away.`
           ])
         )
       ],
@@ -265,8 +240,7 @@ client.on("interactionCreate", async (interaction) => {
           pick([
             `🖤 You ignore ${target}.`,
             `🌫️ Silence replaces response.`,
-            `🕯️ No acknowledgment is given.`,
-            `🌙 You choose absence over reaction.`
+            `🕯️ No acknowledgment is given.`
           ])
         )
       ],
@@ -283,9 +257,8 @@ client.on("interactionCreate", async (interaction) => {
         makeEmbed(
           pick([
             `🕯️ You accuse ${target}.`,
-            `🌫️ Tension rises without resolution.`,
-            `🌙 Words are unspoken but heavy.`,
-            `🖤 Something breaks in silence.`
+            `🌫️ Tension rises.`,
+            `🌙 Words remain unspoken.`
           ])
         )
       ],
@@ -303,9 +276,8 @@ client.on("interactionCreate", async (interaction) => {
         makeEmbed(
           pick([
             `🖤 You betray ${target}.`,
-            `🌫️ Trust fractures between you.`,
-            `🕯️ The moon records another betrayal.`,
-            `🌙 Some bonds are not meant to survive.`
+            `🌫️ Trust breaks.`,
+            `🕯️ The moon records it.`
           ])
         )
       ],
@@ -328,10 +300,7 @@ Echo: ${data.echo}
 Obsession: ${data.obsession}
 Tension: ${data.tension}`
           )
-          .setFooter({
-            text: "🕯️ Emotional state archived."
-          })
-          .setTimestamp()
+          .setFooter({ text: "🕯️ Emotional state archived." })
       ]
     });
   }
@@ -340,27 +309,19 @@ Tension: ${data.tension}`
   if (interaction.commandName === "help") {
     return interaction.reply({
       embeds: [
-        makeEmbed(
-`🌙 Lunar Consort
+        makeEmbed(`
+🌙 Lunar Consort
 
-💔 Longing
-/miss /remember /yearn
-
-🌫️ Distance
-/fade /ignore
-
-👁️ Observation
-/watch
-
-🕯️ Secrets & Conflict
-/accuse /betray
-
-📖 Personal
-/profile /help`
-        )
+💔 /miss /remember /yearn
+🌫️ /fade /ignore
+👁️ /watch
+🖤 /accuse /betray
+📖 /profile /help
+        `)
       ]
     });
   }
 });
-// 🚀 LOGIN
+
+// 🚀 LOGIN (FINAL LINE)
 client.login(process.env.DISCORD_TOKEN);
