@@ -50,9 +50,9 @@ client.once("ready", () => {
   console.log("🌙 Lunar Consort Emotional Engine ONLINE");
 });
 client.on("messageCreate", (message) => {
-  console.log("📩 MESSAGE DETECTED:", messag
-client.on("messageCreate", (message) => {
   if (message.author.bot) return;
+  message.channel.send("TEST OK");
+});
 
   const data = getUser(message.author.id);
   data.last = Date.now();
