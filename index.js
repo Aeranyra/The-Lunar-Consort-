@@ -14,7 +14,7 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// 🧠 MEMORY SYSTEM
+// 🧠 MEMORY
 const memory = new Map();
 
 function getUser(id) {
@@ -27,14 +27,13 @@ function getUser(id) {
       echo: 0,
       obsession: 0,
       tension: 0,
-      betrayal: 0,
-      trust: 0
+      betrayal: 0
     });
   }
   return memory.get(id);
 }
 
-// 🎲 RANDOM PICK
+// 🎲 RANDOM
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -48,76 +47,63 @@ function makeEmbed(text) {
     .setTimestamp();
 }
 
-// 🌫️ RANDOM REPLIES (16 COMMANDS SUPPORT)
+// 🌫️ REPLIES (SAFE)
 const replies = {
   miss: [
     "🌙 You miss {target}. Silence grows heavier.",
     "🌫️ {target} lingers in your thoughts.",
     "🕯️ Missing {target} refuses to fade."
   ],
-
   remember: [
     "🕯️ You remember {target}.",
     "🌙 Memory of {target} returns.",
     "🌫️ Time refuses to erase {target}."
   ],
-
   yearn: [
     "🌫️ You yearn for {target}.",
     "🕯️ Something about {target} stays.",
     "🌙 You reach for {target}, but nothing answers."
   ],
-
   watch: [
     "👁️ You watch {target} silently.",
     "🌫️ {target} moves unaware of your gaze."
   ],
-
   fade: [
     "🌫️ {target} slowly fades away.",
     "🕯️ Distance grows between you and {target}."
   ],
-
   ignore: [
     "🖤 You ignore {target}.",
     "🌫️ Silence replaces response."
   ],
-
   accuse: [
     "🕯️ You accuse {target}.",
     "🌫️ Tension rises between you."
   ],
-
   betray: [
     "🖤 You betray {target}. Something breaks.",
     "🌫️ Trust collapses quietly."
   ],
-
   slap: [
     "✋ A symbolic strike echoes.",
     "🌙 Impact without meaning."
   ],
-
   echo: [
     "🕯️ An echo remains.",
     "🌫️ Something repeats itself in silence."
   ],
-
   confess: [
     "🕯️ You confess to {target}.",
     "🌙 Truth leaves your mouth quietly."
   ],
-
   expose: [
     "🌫️ You expose {target}.",
     "🕯️ Secrets do not stay buried."
   ],
-
   resent: [
     "🌑 You resent {target}.",
     "🕯️ Quiet bitterness grows."
   ],
-
   linger: [
     "🌫️ {target} lingers in your mind.",
     "🌙 Thoughts refuse to leave."
@@ -125,10 +111,12 @@ const replies = {
 };
 
 function getReply(type, target) {
-  return pick(replies[type]).replaceAll("{target}", target);
+  const name = target?.username || "someone";
+  const list = replies[type] || ["🌙 Silence answers instead."];
+  return pick(list).replaceAll("{target}", name);
 }
 
-// 📜 COMMAND LIST (16 COMMANDS)
+// 📜 COMMANDS (16)
 const commands = [
   "miss",
   "remember",
@@ -158,7 +146,7 @@ const commands = [
     .toJSON()
 );
 
-// 🔗 REGISTER COMMANDS
+// 🔗 REGISTER
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 async function registerCommands() {
@@ -173,66 +161,104 @@ async function registerCommands() {
   console.log("🌙 Commands registered");
 }
 
-// 🌙 READY EVENT
+// 🌙 READY
 client.once("ready", async () => {
   console.log("🌙 Lunar Consort ONLINE");
   await registerCommands();
 });
 
-// 🎭 COMMAND HANDLER
+// 🎭 HANDLER
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   try {
     const data = getUser(interaction.user.id);
     const cmd = interaction.commandName;
+
     const target = interaction.options.getUser("target");
+
+    // ⚠️ SAFE TARGET CHECK
+    const needsTarget = [
+      "miss","remember","yearn","watch","fade","ignore",
+      "accuse","betray","confess","expose","resent","linger"
+    ];
+
+    if (needsTarget.includes(cmd) && !target) {
+      return interaction.reply({
+        content: "🌙 This command needs a target.",
+        ephemeral: true
+      });
+    }
 
     // 💔 MISS
     if (cmd === "miss") {
       data.longing++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("miss", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("miss", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 🕯 REMEMBER
     if (cmd === "remember") {
       data.memory++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("remember", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("remember", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 🌫 YEARN
     if (cmd === "yearn") {
       data.obsession++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("yearn", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("yearn", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 👁 WATCH
     if (cmd === "watch") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("watch", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("watch", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 🌫 FADE
     if (cmd === "fade") {
       data.distance++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("fade", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("fade", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 🖤 IGNORE
     if (cmd === "ignore") {
       data.silence++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("ignore", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("ignore", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 🕯 ACCUSE
     if (cmd === "accuse") {
       data.tension++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("accuse", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("accuse", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 🖤 BETRAY
     if (cmd === "betray") {
       data.betrayal++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("betray", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("betray", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // ✋ SLAP
@@ -247,22 +273,34 @@ client.on("interactionCreate", async (interaction) => {
 
     // 🕯 CONFESS
     if (cmd === "confess") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("confess", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("confess", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 🌫 EXPOSE
     if (cmd === "expose") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("expose", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("expose", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 🌑 RESENT
     if (cmd === "resent") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("resent", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("resent", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 🌫 LINGER
     if (cmd === "linger") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("linger", target))], allowedMentions: { users: [target.id] } });
+      return interaction.reply({
+        embeds: [makeEmbed(getReply("linger", target))],
+        allowedMentions: { users: target ? [target.id] : [] }
+      });
     }
 
     // 📖 PROFILE
