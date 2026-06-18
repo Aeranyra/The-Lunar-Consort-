@@ -45,11 +45,12 @@ setInterval(() => {
     }
   }
 }, 30000);
-
+e.content);
 client.once("ready", () => {
   console.log("🌙 Lunar Consort Emotional Engine ONLINE");
 });
-
+client.on("messageCreate", (message) => {
+  console.log("📩 MESSAGE DETECTED:", messag
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
 
