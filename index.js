@@ -3,7 +3,10 @@ require("dotenv").config();
 const {
   Client,
   GatewayIntentBits,
-  EmbedBuilder
+  EmbedBuilder,
+  REST,
+  Routes,
+  SlashCommandBuilder
 } = require("discord.js");
 
 // 🌙 CLIENT
@@ -35,7 +38,7 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// 🌙 EMBED
+// 🌙 EMBED — now accepts optional mention string
 function makeEmbed(text) {
   return new EmbedBuilder()
     .setTitle("🌙 Lunar Consort")
@@ -47,39 +50,39 @@ function makeEmbed(text) {
 // 🌫️ RANDOM REPLIES
 const replies = {
   miss: [
-    "🌙 You miss {target}. Silence grows heavier.",
-    "🌫️ {target} lingers in your thoughts.",
-    "🕯️ Missing {target} refuses to fade."
+    "🌙 You miss {mention}. Silence grows heavier.",
+    "🌫️ {mention} lingers in your thoughts.",
+    "🕯️ Missing {mention} refuses to fade."
   ],
   remember: [
-    "🕯️ You remember {target}.",
-    "🌙 Memory of {target} returns.",
-    "🌫️ Time refuses to erase {target}."
+    "🕯️ You remember {mention}.",
+    "🌙 Memory of {mention} returns.",
+    "🌫️ Time refuses to erase {mention}."
   ],
   yearn: [
-    "🌫️ You yearn for {target}.",
-    "🕯️ Something about {target} stays.",
-    "🌙 You reach for {target}, but nothing answers."
+    "🌫️ You yearn for {mention}.",
+    "🕯️ Something about {mention} stays.",
+    "🌙 You reach for {mention}, but nothing answers."
   ],
   watch: [
-    "👁️ You watch {target} silently.",
-    "🌫️ {target} moves unaware of your gaze."
+    "👁️ You watch {mention} silently.",
+    "🌫️ {mention} moves unaware of your gaze."
   ],
   fade: [
-    "🌫️ {target} slowly fades away.",
-    "🕯️ Distance grows between you and {target}."
+    "🌫️ {mention} slowly fades away.",
+    "🕯️ Distance grows between you and {mention}."
   ],
   ignore: [
-    "🖤 You ignore {target}.",
+    "🖤 You ignore {mention}.",
     "🌫️ Silence replaces response."
   ],
   accuse: [
-    "🕯️ You accuse {target}.",
-    "🌫️ Tension rises between you."
+    "🕯️ You accuse {mention}.",
+    "🌫️ Tension rises between you and {mention}."
   ],
   betray: [
-    "🖤 You betray {target}. Something breaks.",
-    "🌫️ Trust collapses quietly."
+    "🖤 You betray {mention}. Something breaks.",
+    "🌫️ Trust collapses quietly between you and {mention}."
   ],
   slap: [
     "✋ A symbolic strike echoes.",
@@ -90,33 +93,29 @@ const replies = {
     "🌫️ Something repeats itself in silence."
   ],
   confess: [
-    "🕯️ You confess to {target}.",
-    "🌙 Truth leaves your mouth quietly."
+    "🕯️ You confess to {mention}.",
+    "🌙 Truth leaves your mouth quietly, reaching {mention}."
   ],
   expose: [
-    "🌫️ You expose {target}.",
-    "🕯️ Secrets do not stay buried."
+    "🌫️ You expose {mention}.",
+    "🕯️ Secrets do not stay buried, {mention}."
   ],
   resent: [
-    "🌑 You resent {target}.",
-    "🕯️ Quiet bitterness grows."
+    "🌑 You resent {mention}.",
+    "🕯️ Quiet bitterness grows toward {mention}."
   ],
   linger: [
-    "🌫️ {target} lingers in your mind.",
-    "🌙 Thoughts refuse to leave."
+    "🌫️ {mention} lingers in your mind.",
+    "🌙 Thoughts of {mention} refuse to leave."
   ]
 };
 
+// ✅ FIX: use target.toString() for a real Discord mention (<@USER_ID>)
 function getReply(type, target) {
-  const name = target?.username || "someone";
+  const mention = target ? target.toString() : "someone";
   const list = replies[type] || ["🌙 Silence answers instead."];
-  return pick(list).replaceAll("{target}", name);
+  return pick(list).replaceAll("{mention}", mention);
 }
-const {
-  REST,
-  Routes,
-  SlashCommandBuilder
-} = require("discord.js");
 
 // 📜 COMMANDS (16)
 const commands = [
@@ -136,25 +135,27 @@ const commands = [
   "linger",
   "profile",
   "help"
-].map(name =>
-  new SlashCommandBuilder()
+].map(name => {
+  const builder = new SlashCommandBuilder()
     .setName(name)
-    .setDescription(`Lunar command: ${name}`)
-    .addUserOption(opt =>
-      ["profile", "help"].includes(name)
-        ? opt
-        : opt.setName("target").setDescription("Target user").setRequired(true)
-    )
-    .toJSON()
-);
+    .setDescription(`Lunar command: ${name}`);
 
-// 🔗 REGISTER (RUN ONCE ONLY SEPARATELY)
+  // Only add user option for commands that need a target
+  if (!["profile", "help", "slap", "echo"].includes(name)) {
+    builder.addUserOption(opt =>
+      opt.setName("target").setDescription("Target user").setRequired(true)
+    );
+  }
+
+  return builder.toJSON();
+});
+
+// 🔗 REGISTER
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 async function registerCommands() {
   try {
     console.log("🌙 Registering commands...");
-
     await rest.put(
       Routes.applicationGuildCommands(
         process.env.CLIENT_ID,
@@ -162,21 +163,15 @@ async function registerCommands() {
       ),
       { body: commands }
     );
-
-    console.log("🌙 Commands registered");
+    console.log("✅ Commands registered successfully.");
   } catch (err) {
-    console.error(err);
+    console.error("❌ Failed to register commands:", err);
   }
 }
 
-/*
-👉 RUN THIS FILE ONCE MANUALLY:
-node register.js
-*/
-
-// 🌙 READY (NO REGISTER HERE)
+// 🌙 READY
 client.once("ready", () => {
-  console.log("🌙 Lunar Consort ONLINE");
+  console.log(`🌙 Lunar Consort ONLINE as ${client.user.tag}`);
 });
 
 // 🎭 HANDLER
@@ -186,12 +181,11 @@ client.on("interactionCreate", async (interaction) => {
   try {
     const data = getUser(interaction.user.id);
     const cmd = interaction.commandName;
-
     const target = interaction.options.getUser("target") ?? null;
 
     const needsTarget = [
-      "miss","remember","yearn","watch","fade","ignore",
-      "accuse","betray","confess","expose","resent","linger"
+      "miss", "remember", "yearn", "watch", "fade", "ignore",
+      "accuse", "betray", "confess", "expose", "resent", "linger"
     ];
 
     if (needsTarget.includes(cmd) && !target) {
@@ -201,68 +195,33 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // 💔 COMMANDS
-    if (cmd === "miss") {
-      data.longing++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("miss", target))], allowedMentions: { users: [target.id] } });
+    // 💔 STAT COMMANDS
+    const statMap = {
+      miss:     "longing",
+      remember: "memory",
+      yearn:    "obsession",
+      fade:     "distance",
+      ignore:   "silence",
+      accuse:   "tension",
+      betray:   "betrayal"
+    };
+
+    if (statMap[cmd]) data[statMap[cmd]]++;
+
+    // Commands that ping a target
+    if (needsTarget.includes(cmd)) {
+      return interaction.reply({
+        // ✅ FIX: content field adds a real ping outside the embed
+        content: target.toString(),
+        embeds: [makeEmbed(getReply(cmd, target))],
+        allowedMentions: { users: [target.id] }
+      });
     }
 
-    if (cmd === "remember") {
-      data.memory++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("remember", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "yearn") {
-      data.obsession++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("yearn", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "watch") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("watch", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "fade") {
-      data.distance++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("fade", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "ignore") {
-      data.silence++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("ignore", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "accuse") {
-      data.tension++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("accuse", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "betray") {
-      data.betrayal++;
-      return interaction.reply({ embeds: [makeEmbed(getReply("betray", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "slap") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("slap", target))] });
-    }
-
-    if (cmd === "echo") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("echo", target))] });
-    }
-
-    if (cmd === "confess") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("confess", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "expose") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("expose", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "resent") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("resent", target))], allowedMentions: { users: [target.id] } });
-    }
-
-    if (cmd === "linger") {
-      return interaction.reply({ embeds: [makeEmbed(getReply("linger", target))], allowedMentions: { users: [target.id] } });
+    if (cmd === "slap" || cmd === "echo") {
+      return interaction.reply({
+        embeds: [makeEmbed(getReply(cmd, null))]
+      });
     }
 
     // 📖 PROFILE
@@ -270,16 +229,19 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.reply({
         embeds: [
           new EmbedBuilder()
-            .setTitle("🌙 Profile")
+            .setTitle("🌙 Your Lunar Profile")
             .setDescription(
-`Longing: ${data.longing}
-Memory: ${data.memory}
-Distance: ${data.distance}
-Silence: ${data.silence}
-Echo: ${data.echo}
-Obsession: ${data.obsession}
-Betrayal: ${data.betrayal}`
+`Longing: **${data.longing}**
+Memory: **${data.memory}**
+Distance: **${data.distance}**
+Silence: **${data.silence}**
+Echo: **${data.echo}**
+Obsession: **${data.obsession}**
+Tension: **${data.tension}**
+Betrayal: **${data.betrayal}**`
             )
+            .setFooter({ text: "🕯️ The moon remembers everything." })
+            .setTimestamp()
         ]
       });
     }
@@ -288,11 +250,11 @@ Betrayal: ${data.betrayal}`
     if (cmd === "help") {
       return interaction.reply({
         embeds: [makeEmbed(
-`🌙 Commands:
-/miss /remember /yearn /watch
-/fade /ignore /accuse /betray
-/slap /echo /confess /expose
-/resent /linger /profile /help`
+`🌙 **Commands:**
+\`/miss\` \`/remember\` \`/yearn\` \`/watch\`
+\`/fade\` \`/ignore\` \`/accuse\` \`/betray\`
+\`/slap\` \`/echo\` \`/confess\` \`/expose\`
+\`/resent\` \`/linger\` \`/profile\` \`/help\``
         )]
       });
     }
@@ -300,10 +262,12 @@ Betrayal: ${data.betrayal}`
   } catch (err) {
     console.error(err);
     if (!interaction.replied) {
-      interaction.reply("🌙 The system flickered… try again.");
+      interaction.reply({ content: "🌙 The system flickered… try again.", ephemeral: true });
     }
   }
 });
 
-// 🚀 LOGIN
-client.login(process.env.DISCORD_TOKEN);
+// 🚀 REGISTER THEN LOGIN
+registerCommands().then(() => {
+  client.login(process.env.DISCORD_TOKEN);
+});
