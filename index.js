@@ -156,7 +156,12 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 async function registerCommands() {
   try {
     console.log("🌙 Clearing and registering commands...");
-    // First clear ALL commands
+    // Clear any leftover GLOBAL commands (old versions may have registered globally)
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: [] }
+    );
+    // First clear ALL guild commands
     await rest.put(
       Routes.applicationGuildCommands(
         process.env.CLIENT_ID,
@@ -164,7 +169,7 @@ async function registerCommands() {
       ),
       { body: [] } // ← empty array wipes everything
     );
-    // Then register fresh
+    // Then register fresh guild commands
     await rest.put(
       Routes.applicationGuildCommands(
         process.env.CLIENT_ID,
