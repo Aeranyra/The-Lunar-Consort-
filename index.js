@@ -275,6 +275,16 @@ const fortunes = [
   "🌫️ Tides of fate swell; the night holds both hope and sorrow.",
   "🖤 The veil thins tonight; tread carefully in dreams.",
   "🌑 Darkness shelters truths yet untold.",
+  "🌘 An old wound stirs; let it speak before it festers.",
+  "✨ A stranger's gaze lingers longer than you think.",
+  "🕸️ What you bury tonight, the moon will unearth.",
+  "🩸 Loyalty is tested where shadows grow long.",
+  "🪦 An ending approaches, though not the one you fear.",
+  "🔮 Clarity comes only after the fog has had its say.",
+  "🌗 Patience now spares regret later.",
+  "🦇 Something watches from just beyond the candlelight.",
+  "🖋️ A truth you've avoided will find its way to paper.",
+  "🌌 The stars conspire quietly; trust what feels inevitable.",
 ];
 
 // GET REPLY WITH REPLACEMENTS
@@ -303,8 +313,8 @@ const commandDescriptions = {
   ignore: "Replace words with silence.",
   accuse: "Tension rises.",
   betray: "Trust shatters.",
-  slap: "Strike someone with a gothic weapon.",
-  kill: "End someone with a gothic weapon, dramatically.",
+  slap: "Strike someone with a random gothic weapon.",
+  kill: "End someone dramatically with a random, more final weapon.",
   random: "Let the moon choose your fate with someone at random.",
   echo: "A haunting whisper.",
   confess: "Speak hidden truths.",
@@ -612,8 +622,8 @@ Betrayal: **${data.betrayal}**`
 • /ignore @user — Replace words with silence.
 • /accuse @user — Tension rises.
 • /betray @user — Trust shatters.
-• /slap @user — Strike with gothic weapon.
-• /kill @user — End someone with a gothic weapon, dramatically.
+• /slap @user — Strike with a random gothic weapon (${slapWeapons.length} to choose from).
+• /kill @user — End someone dramatically with a random, more final weapon (${killWeapons.length} to choose from).
 • /random @user — Let the moon choose your fate with them at random.
 • /echo — A haunting whisper (no target).
 • /confess @user — Speak hidden truths.
@@ -624,7 +634,7 @@ Betrayal: **${data.betrayal}**`
 • /curse @user — Whisper a quiet curse upon them.
 • /worship @user — Devote yourself to someone, reverently.
 • /profile [user] — View your or others’ lunar stats and title.
-• /fortune — Seek the moon’s dark prophecy.
+• /fortune — Seek one of ${fortunes.length} dark prophecies the moon may offer.
 • /reset — Clear your lunar profile.
 • /top [stat] — View the Hall of the Moonbound leaderboard.
 
