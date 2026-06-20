@@ -6,16 +6,19 @@ const {
   EmbedBuilder,
   REST,
   Routes,
-  SlashCommandBuilder
+  SlashCommandBuilder,
 } = require("discord.js");
 
-// 🌙 CLIENT
+// CLIENT
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [GatewayIntentBits.Guilds],
 });
 
-// 🧠 MEMORY
+// MEMORY
 const memory = new Map();
+
+// COOLDOWNS: Map of userId -> { cmdName: timestamp }
+const cooldowns = new Map();
 
 function getUser(id) {
   if (!memory.has(id)) {
@@ -27,97 +30,132 @@ function getUser(id) {
       echo: 0,
       obsession: 0,
       tension: 0,
-      betrayal: 0
+      betrayal: 0,
     });
   }
   return memory.get(id);
 }
 
-// 🎲 RANDOM
+// COOLDOWN CHECK (10 seconds)
+function checkCooldown(userId, cmd) {
+  if (!cooldowns.has(userId)) cooldowns.set(userId, {});
+  const userCds = cooldowns.get(userId);
+  const now = Date.now();
+
+  if (userCds[cmd] && now - userCds[cmd] < 10_000) {
+    return true; // on cooldown
+  }
+  userCds[cmd] = now;
+  return false;
+}
+
+// PICK RANDOM ELEMENT
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// 🌙 EMBED — now accepts optional mention string
+// EMBED MAKER
 function makeEmbed(text) {
   return new EmbedBuilder()
     .setTitle("🌙 Lunar Consort")
     .setDescription(text)
     .setFooter({ text: "🕯️ The moon remembers everything." })
-    .setTimestamp();
+    .setTimestamp()
+    .setColor("#4A4A6B");
 }
 
-// 🌫️ RANDOM REPLIES
+// THEMED SLAP WEAPONS
+const slapWeapons = [
+  "a bone-handled dagger",
+  "a withered rose",
+  "a cold iron chain",
+  "a spectral whip",
+  "a shard of broken glass",
+  "a rusted skeleton key",
+  "a faded lace glove",
+];
+
+// RANDOM REPLIES
 const replies = {
   miss: [
     "🌙 You miss {mention}. Silence grows heavier.",
     "🌫️ {mention} lingers in your thoughts.",
-    "🕯️ Missing {mention} refuses to fade."
+    "🕯️ Missing {mention} refuses to fade.",
   ],
   remember: [
     "🕯️ You remember {mention}.",
     "🌙 Memory of {mention} returns.",
-    "🌫️ Time refuses to erase {mention}."
+    "🌫️ Time refuses to erase {mention}.",
   ],
   yearn: [
     "🌫️ You yearn for {mention}.",
     "🕯️ Something about {mention} stays.",
-    "🌙 You reach for {mention}, but nothing answers."
+    "🌙 You reach for {mention}, but nothing answers.",
   ],
   watch: [
     "👁️ You watch {mention} silently.",
-    "🌫️ {mention} moves unaware of your gaze."
+    "🌫️ {mention} moves unaware of your gaze.",
   ],
   fade: [
     "🌫️ {mention} slowly fades away.",
-    "🕯️ Distance grows between you and {mention}."
+    "🕯️ Distance grows between you and {mention}.",
   ],
-  ignore: [
-    "🖤 You ignore {mention}.",
-    "🌫️ Silence replaces response."
-  ],
+  ignore: ["🖤 You ignore {mention}.", "🌫️ Silence replaces response."],
   accuse: [
     "🕯️ You accuse {mention}.",
-    "🌫️ Tension rises between you and {mention}."
+    "🌫️ Tension rises between you and {mention}.",
   ],
   betray: [
     "🖤 You betray {mention}. Something breaks.",
-    "🌫️ Trust collapses quietly between you and {mention}."
+    "🌫️ Trust collapses quietly between you and {mention}.",
   ],
   slap: [
-    "✋ A symbolic strike echoes.",
-    "🌙 Impact without meaning."
+    "{author} strikes {mention} with {weapon}, shadows whisper in the moonlight.",
+    "🌙 {author} delivers a mournful blow to {mention} using {weapon}.",
+    "🖤 {weapon} finds its mark on {mention} as {author} gestures from the gloom.",
   ],
-  echo: [
-    "🕯️ An echo remains.",
-    "🌫️ Something repeats itself in silence."
-  ],
+  echo: ["🕯️ An echo remains.", "🌫️ Something repeats itself in silence."],
   confess: [
     "🕯️ You confess to {mention}.",
-    "🌙 Truth leaves your mouth quietly, reaching {mention}."
+    "🌙 Truth leaves your mouth quietly, reaching {mention}.",
   ],
-  expose: [
-    "🌫️ You expose {mention}.",
-    "🕯️ Secrets do not stay buried, {mention}."
-  ],
+  expose: ["🌫️ You expose {mention}.", "🕯️ Secrets do not stay buried, {mention}."],
   resent: [
     "🌑 You resent {mention}.",
-    "🕯️ Quiet bitterness grows toward {mention}."
+    "🕯️ Quiet bitterness grows toward {mention}.",
   ],
   linger: [
     "🌫️ {mention} lingers in your mind.",
-    "🌙 Thoughts of {mention} refuse to leave."
-  ]
+    "🌙 Thoughts of {mention} refuse to leave.",
+  ],
 };
 
-// ✅ use target.toString() for a real Discord mention (<@USER_ID>)
-function getReply(type, target) {
-  const mention = target ? target.toString() : "someone";
+// FORTUNE MESSAGES
+const fortunes = [
+  "🌙 Shadows dance in your path; beware what hides unseen.",
+  "🕯️ The moon’s whisper foretells secrets soon unbound.",
+  "🌫️ Tides of fate swell; the night holds both hope and sorrow.",
+  "🖤 The veil thins tonight; tread carefully in dreams.",
+  "🌑 Darkness shelters truths yet untold.",
+];
+
+// GET REPLY WITH REPLACEMENTS
+function getReply(type, author, target) {
+  let mention = target ? target.toString() : null;
+  let weapon = type === "slap" ? pick(slapWeapons) : null;
+  const authorMention = author.toString();
+
   const list = replies[type] || ["🌙 Silence answers instead."];
-  return pick(list).replaceAll("{mention}", mention);
+  let text = pick(list);
+
+  text = text.replaceAll("{mention}", mention || "someone");
+  text = text.replaceAll("{author}", authorMention);
+  text = text.replaceAll("{weapon}", weapon || "");
+
+  return text;
 }
 
-// 📜 COMMANDS (16)
+// COMMAND LIST
 const commands = [
   "miss",
   "remember",
@@ -134,47 +172,51 @@ const commands = [
   "resent",
   "linger",
   "profile",
-  "help"
-].map(name => {
+  "help",
+  "fortune",
+  "reset",
+].map((name) => {
   const builder = new SlashCommandBuilder()
     .setName(name)
     .setDescription(`Lunar command: ${name}`);
 
-  // Only add user option for commands that need a target
-  if (!["profile", "help", "slap", "echo"].includes(name)) {
-    builder.addUserOption(opt =>
+  if (
+    ![
+      "profile",
+      "help",
+      "slap",
+      "echo",
+      "fortune",
+      "reset",
+    ].includes(name)
+  ) {
+    builder.addUserOption((opt) =>
       opt.setName("target").setDescription("Target user").setRequired(true)
     );
   }
 
+  // For profile, allow optional user
+  if (name === "profile") {
+    builder.addUserOption((opt) =>
+      opt.setName("user").setDescription("User to view profile (optional)").setRequired(false)
+    );
+  }
   return builder.toJSON();
 });
 
-// 🔗 REGISTER
+// REST & REGISTER COMMANDS
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 async function registerCommands() {
   try {
     console.log("🌙 Clearing and registering commands...");
-    // Clear any leftover GLOBAL commands (old versions may have registered globally)
+    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: [] });
     await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: [] }
     );
-    // First clear ALL guild commands
     await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID
-      ),
-      { body: [] } // ← empty array wipes everything
-    );
-    // Then register fresh guild commands
-    await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID
-      ),
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: commands }
     );
     console.log("✅ Commands registered successfully.");
@@ -183,68 +225,97 @@ async function registerCommands() {
   }
 }
 
-// 🌙 READY
+// READY
 client.once("ready", () => {
   console.log(`🌙 Lunar Consort ONLINE as ${client.user.tag}`);
 });
 
-// 🎭 HANDLER
+// INTERACTION HANDLER
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
+  const { commandName, user } = interaction;
+
   try {
-    const data = getUser(interaction.user.id);
-    const cmd = interaction.commandName;
-    const target = interaction.options.getUser("target") ?? null;
-
-    const needsTarget = [
-      "miss", "remember", "yearn", "watch", "fade", "ignore",
-      "accuse", "betray", "confess", "expose", "resent", "linger"
-    ];
-
-    if (needsTarget.includes(cmd) && !target) {
+    // Check cooldown:
+    if (checkCooldown(user.id, commandName)) {
       return interaction.reply({
-        content: "🌙 This command needs a target.",
-        ephemeral: true
+        content: "🌙 The moon needs a moment to breathe… Try again later.",
+        ephemeral: true,
       });
     }
 
-    // 💔 STAT COMMANDS
-    const statMap = {
-      miss:     "longing",
-      remember: "memory",
-      yearn:    "obsession",
-      fade:     "distance",
-      ignore:   "silence",
-      accuse:   "tension",
-      betray:   "betrayal"
-    };
+    let data;
+    let targetUser;
 
-    if (statMap[cmd]) data[statMap[cmd]]++;
+    // Handle commands
+    switch (commandName) {
+      case "miss":
+      case "remember":
+      case "yearn":
+      case "watch":
+      case "fade":
+      case "ignore":
+      case "accuse":
+      case "betray":
+      case "confess":
+      case "expose":
+      case "resent":
+      case "linger":
+        targetUser = interaction.options.getUser("target");
+        if (!targetUser) {
+          return interaction.reply({
+            content: "🌙 This command needs a target.",
+            ephemeral: true,
+          });
+        }
+        data = getUser(user.id);
 
-    // Commands that ping a target
-    if (needsTarget.includes(cmd)) {
-      return interaction.reply({
-        // ✅ content field adds a real ping outside the embed
-        content: target.toString(),
-        embeds: [makeEmbed(getReply(cmd, target))],
-        allowedMentions: { users: [target.id] }
-      });
-    }
+        // Stat mapping
+        const statMap = {
+          miss: "longing",
+          remember: "memory",
+          yearn: "obsession",
+          fade: "distance",
+          ignore: "silence",
+          accuse: "tension",
+          betray: "betrayal",
+        };
+        if (statMap[commandName]) data[statMap[commandName]]++;
 
-    if (cmd === "slap" || cmd === "echo") {
-      return interaction.reply({
-        embeds: [makeEmbed(getReply(cmd, null))]
-      });
-    }
+        return interaction.reply({
+          content: targetUser.toString(),
+          embeds: [makeEmbed(getReply(commandName, user, targetUser))],
+          allowedMentions: { users: [targetUser.id] },
+        });
 
-    // 📖 PROFILE
-    if (cmd === "profile") {
-      return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("🌙 Your Lunar Profile")
-            .setDescription(
+      case "slap":
+        targetUser = interaction.options.getUser("target");
+        if (!targetUser) {
+          return interaction.reply({
+            content: "🌙 /slap requires a target user.",
+            ephemeral: true,
+          });
+        }
+        return interaction.reply({
+          content: targetUser.toString(),
+          embeds: [makeEmbed(getReply("slap", user, targetUser))],
+          allowedMentions: { users: [targetUser.id] },
+        });
+
+      case "echo":
+        return interaction.reply({
+          embeds: [makeEmbed(getReply("echo", user, null))],
+        });
+
+      case "profile":
+        targetUser = interaction.options.getUser("user") || user;
+        data = getUser(targetUser.id);
+        return interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle(`🌙 Lunar Profile: ${targetUser.username}`)
+              .setDescription(
 `Longing: **${data.longing}**
 Memory: **${data.memory}**
 Distance: **${data.distance}**
@@ -253,35 +324,75 @@ Echo: **${data.echo}**
 Obsession: **${data.obsession}**
 Tension: **${data.tension}**
 Betrayal: **${data.betrayal}**`
-            )
-            .setFooter({ text: "🕯️ The moon remembers everything." })
-            .setTimestamp()
-        ]
-      });
-    }
+              )
+              .setFooter({ text: "🕯️ The moon remembers everything." })
+              .setTimestamp()
+              .setColor("#4A4A6B"),
+          ],
+        });
 
-    // 📜 HELP
-    if (cmd === "help") {
-      return interaction.reply({
-        embeds: [makeEmbed(
-`🌙 **Commands:**
-\`/miss\` \`/remember\` \`/yearn\` \`/watch\`
-\`/fade\` \`/ignore\` \`/accuse\` \`/betray\`
-\`/slap\` \`/echo\` \`/confess\` \`/expose\`
-\`/resent\` \`/linger\` \`/profile\` \`/help\``
-        )]
-      });
-    }
+      case "help":
+        return interaction.reply({
+          embeds: [
+            makeEmbed(
+`🌙 **Lunar Consort Help** — A dark tale told under moonlight.
 
-  } catch (err) {
-    console.error(err);
+**Commands (mention a target with @user unless noted):**
+
+• /miss @user — Express longing for another.
+• /remember @user — Recall old memories.
+• /yearn @user — Deep desire that clings.
+• /watch @user — Silent observation.
+• /fade @user — The growing distance.
+• /ignore @user — Replace words with silence.
+• /accuse @user — Tension rises.
+• /betray @user — Trust shatters.
+• /slap @user — Strike with gothic weapon.
+• /echo — A haunting whisper (no target).
+• /confess @user — Speak hidden truths.
+• /expose @user — Secrets unveiled.
+• /resent @user — Quiet bitterness.
+• /linger @user — Thoughts that refuse to leave.
+• /profile [user] — View your or others’ lunar stats.
+• /fortune — Seek the moon’s dark prophecy.
+• /reset — Clear your lunar profile.
+
+🌙 Most commands require mentioning a user.`
+            ),
+          ],
+        });
+
+      case "fortune":
+        return interaction.reply({
+          embeds: [makeEmbed(pick(fortunes))],
+        });
+
+      case "reset":
+        data = getUser(user.id);
+        Object.keys(data).forEach((key) => (data[key] = 0));
+        return interaction.reply({
+          content: "🌙 Your lunar profile has been reset to nothingness.",
+          ephemeral: true,
+        });
+
+      default:
+        return interaction.reply({
+          content: "🌙 Unknown command...",
+          ephemeral: true,
+        });
+    }
+  } catch (error) {
+    console.error(error);
     if (!interaction.replied) {
-      interaction.reply({ content: "🌙 The system flickered… try again.", ephemeral: true });
+      interaction.reply({
+        content: "🌙 The system flickered… try again.",
+        ephemeral: true,
+      });
     }
   }
 });
 
-// 🚀 REGISTER THEN LOGIN
+// REGISTER AND LOGIN
 registerCommands().then(() => {
   client.login(process.env.DISCORD_TOKEN);
 });
