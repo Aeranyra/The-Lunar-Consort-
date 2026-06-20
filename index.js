@@ -1,4 +1,6 @@
 require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
 
 const {
   Client,
@@ -9,6 +11,16 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
+// ENV VALIDATION
+const REQUIRED_ENV = ["DISCORD_TOKEN", "CLIENT_ID", "GUILD_ID"];
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+  console.error(
+    `❌ Missing required environment variable(s): ${missingEnv.join(", ")}`
+  );
+  process.exit(1);
+}
+
 // CLIENT
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -16,6 +28,31 @@ const client = new Client({
 
 // MEMORY
 const memory = new Map();
+
+// PERSISTENCE — plain JSON file, no extra dependencies
+const DATA_FILE = path.join(__dirname, "data.json");
+
+function loadData() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return;
+    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    if (!raw.trim()) return;
+    const parsed = JSON.parse(raw);
+    Object.entries(parsed).forEach(([id, stats]) => memory.set(id, stats));
+    console.log(`🌙 Loaded lunar memory for ${memory.size} soul(s) from data.json.`);
+  } catch (err) {
+    console.error("❌ Failed to load data.json (starting with empty memory):", err);
+  }
+}
+
+function saveData() {
+  try {
+    const obj = Object.fromEntries(memory);
+    fs.writeFileSync(DATA_FILE, JSON.stringify(obj, null, 2), "utf8");
+  } catch (err) {
+    console.error("❌ Failed to save data.json:", err);
+  }
+}
 
 // COOLDOWNS: Map of userId -> { cmdName: timestamp }
 const cooldowns = new Map();
@@ -36,6 +73,14 @@ function getUser(id) {
   return memory.get(id);
 }
 
+// Increments a stat and persists the change. Returns the updated user data.
+function incrementStat(userId, statKey) {
+  const data = getUser(userId);
+  data[statKey]++;
+  saveData();
+  return data;
+}
+
 // COOLDOWN CHECK (10 seconds)
 function checkCooldown(userId, cmd) {
   if (!cooldowns.has(userId)) cooldowns.set(userId, {});
@@ -54,12 +99,38 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// MOON PHASE ENGINE — computes the real current phase, used in every embed footer
+const MOON_PHASES = [
+  { name: "New Moon", emoji: "🌑" },
+  { name: "Waxing Crescent", emoji: "🌒" },
+  { name: "First Quarter", emoji: "🌓" },
+  { name: "Waxing Gibbous", emoji: "🌔" },
+  { name: "Full Moon", emoji: "🌕" },
+  { name: "Waning Gibbous", emoji: "🌖" },
+  { name: "Last Quarter", emoji: "🌗" },
+  { name: "Waning Crescent", emoji: "🌘" },
+];
+const SYNODIC_MONTH_DAYS = 29.530588853;
+const KNOWN_NEW_MOON_UTC = Date.UTC(2000, 0, 6, 18, 14, 0);
+
+function getMoonPhase() {
+  const daysSince = (Date.now() - KNOWN_NEW_MOON_UTC) / 86_400_000;
+  const cyclePosition = ((daysSince % SYNODIC_MONTH_DAYS) + SYNODIC_MONTH_DAYS) % SYNODIC_MONTH_DAYS;
+  const index = Math.floor((cyclePosition / SYNODIC_MONTH_DAYS) * 8 + 0.5) % 8;
+  return MOON_PHASES[index];
+}
+
+function moonFooter() {
+  const phase = getMoonPhase();
+  return `${phase.emoji} ${phase.name} • The moon remembers everything.`;
+}
+
 // EMBED MAKER
 function makeEmbed(text) {
   return new EmbedBuilder()
     .setTitle("🌙 Lunar Consort")
     .setDescription(text)
-    .setFooter({ text: "🕯️ The moon remembers everything." })
+    .setFooter({ text: moonFooter() })
     .setTimestamp()
     .setColor("#4A4A6B");
 }
@@ -74,6 +145,25 @@ const slapWeapons = [
   "a rusted skeleton key",
   "a faded lace glove",
 ];
+
+// THEMED KILL WEAPONS (distinct pool from /slap, more dramatic/final)
+const killWeapons = [
+  "a moonlit guillotine",
+  "a phantom's noose",
+  "a cursed dagger forged in starlight",
+  "a void-black scythe",
+  "a goblet of poisoned wine",
+  "a shattered hourglass",
+  "a wraith's icy embrace",
+  "a coffin lid slammed shut",
+  "the last toll of a graveyard bell",
+];
+
+// MAP COMMAND TYPE -> WEAPON POOL (extend here for future weapon-based commands)
+const weaponPools = {
+  slap: slapWeapons,
+  kill: killWeapons,
+};
 
 // RANDOM REPLIES
 const replies = {
@@ -114,6 +204,11 @@ const replies = {
     "🌙 {author} delivers a mournful blow to {mention} using {weapon}.",
     "🖤 {weapon} finds its mark on {mention} as {author} gestures from the gloom.",
   ],
+  kill: [
+    "🖤 {author} ends {mention} with {weapon}, and the moon looks away.",
+    "🌑 Under a dying moon, {author} claims {mention} with {weapon}.",
+    "🕯️ {weapon} seals {mention}'s fate as {author} watches in silence.",
+  ],
   echo: ["🕯️ An echo remains.", "🌫️ Something repeats itself in silence."],
   confess: [
     "🕯️ You confess to {mention}.",
@@ -128,7 +223,50 @@ const replies = {
     "🌫️ {mention} lingers in your mind.",
     "🌙 Thoughts of {mention} refuse to leave.",
   ],
+  haunt: [
+    "👻 You haunt {mention}, a chill no one else feels.",
+    "🌫️ {mention} senses eyes that aren't there — yours.",
+    "🕯️ You linger in {mention}'s reflection, just out of sight.",
+  ],
+  curse: [
+    "🌑 You curse {mention} under your breath, and the candles flicker.",
+    "🖤 A quiet curse leaves your lips, settling over {mention}.",
+    "🕯️ {mention} feels something shift — your curse has taken root.",
+  ],
+  worship: [
+    "🌙 You worship {mention} as though they were the moon itself.",
+    "🕯️ Every thought bends toward {mention}, reverent and quiet.",
+    "🌫️ {mention} becomes the altar you kneel before.",
+  ],
 };
+
+// ACTION TYPES ELIGIBLE FOR /random (anything with a target; echo is excluded since it has none)
+const randomActionTypes = Object.keys(replies).filter((type) => type !== "echo");
+
+// STAT MAPPING — shared by the direct commands and by /random
+const statMap = {
+  miss: "longing",
+  remember: "memory",
+  yearn: "obsession",
+  fade: "distance",
+  ignore: "silence",
+  accuse: "tension",
+  betray: "betrayal",
+};
+
+// LUNAR TITLES — based on a user's combined stat total, shown on /profile
+const MOON_TITLES = [
+  { min: 100, title: "Sovereign of the Veil" },
+  { min: 50, title: "Eternal Consort" },
+  { min: 25, title: "Moonlit Devotee" },
+  { min: 10, title: "Bound Spirit" },
+  { min: 1, title: "Wandering Shade" },
+  { min: 0, title: "Unawakened Soul" },
+];
+
+function getMoonTitle(total) {
+  return MOON_TITLES.find((tier) => total >= tier.min).title;
+}
 
 // FORTUNE MESSAGES
 const fortunes = [
@@ -142,7 +280,7 @@ const fortunes = [
 // GET REPLY WITH REPLACEMENTS
 function getReply(type, author, target) {
   let mention = target ? target.toString() : null;
-  let weapon = type === "slap" ? pick(slapWeapons) : null;
+  let weapon = weaponPools[type] ? pick(weaponPools[type]) : null;
   const authorMention = author.toString();
 
   const list = replies[type] || ["🌙 Silence answers instead."];
@@ -155,6 +293,37 @@ function getReply(type, author, target) {
   return text;
 }
 
+// COMMAND DESCRIPTIONS (shown in Discord's slash command UI)
+const commandDescriptions = {
+  miss: "Express longing for another.",
+  remember: "Recall old memories.",
+  yearn: "Deep desire that clings.",
+  watch: "Silent observation.",
+  fade: "The growing distance.",
+  ignore: "Replace words with silence.",
+  accuse: "Tension rises.",
+  betray: "Trust shatters.",
+  slap: "Strike someone with a gothic weapon.",
+  kill: "End someone with a gothic weapon, dramatically.",
+  random: "Let the moon choose your fate with someone at random.",
+  echo: "A haunting whisper.",
+  confess: "Speak hidden truths.",
+  expose: "Secrets unveiled.",
+  resent: "Quiet bitterness.",
+  linger: "Thoughts that refuse to leave.",
+  haunt: "Linger unseen at someone's side.",
+  curse: "Whisper a quiet curse upon them.",
+  worship: "Devote yourself to someone, reverently.",
+  profile: "View your or others' lunar stats.",
+  help: "Show the Lunar Consort command guide.",
+  fortune: "Seek the moon's dark prophecy.",
+  reset: "Clear your lunar profile.",
+  top: "View the Hall of the Moonbound — top lunar scores.",
+};
+
+// COMMANDS THAT DO NOT REQUIRE A TARGET USER
+const noTargetCommands = ["profile", "help", "echo", "fortune", "reset", "top"];
+
 // COMMAND LIST
 const commands = [
   "miss",
@@ -166,30 +335,27 @@ const commands = [
   "accuse",
   "betray",
   "slap",
+  "kill",
+  "random",
   "echo",
   "confess",
   "expose",
   "resent",
   "linger",
+  "haunt",
+  "curse",
+  "worship",
   "profile",
   "help",
   "fortune",
   "reset",
+  "top",
 ].map((name) => {
   const builder = new SlashCommandBuilder()
     .setName(name)
-    .setDescription(`Lunar command: ${name}`);
+    .setDescription(commandDescriptions[name] || `Lunar command: ${name}`);
 
-  if (
-    ![
-      "profile",
-      "help",
-      "slap",
-      "echo",
-      "fortune",
-      "reset",
-    ].includes(name)
-  ) {
+  if (!noTargetCommands.includes(name)) {
     builder.addUserOption((opt) =>
       opt.setName("target").setDescription("Target user").setRequired(true)
     );
@@ -199,6 +365,27 @@ const commands = [
   if (name === "profile") {
     builder.addUserOption((opt) =>
       opt.setName("user").setDescription("User to view profile (optional)").setRequired(false)
+    );
+  }
+
+  // For top, allow choosing which stat to rank by
+  if (name === "top") {
+    builder.addStringOption((opt) =>
+      opt
+        .setName("stat")
+        .setDescription("Which stat to rank by (default: total)")
+        .setRequired(false)
+        .addChoices(
+          { name: "Total (all stats combined)", value: "total" },
+          { name: "Longing", value: "longing" },
+          { name: "Memory", value: "memory" },
+          { name: "Distance", value: "distance" },
+          { name: "Silence", value: "silence" },
+          { name: "Echo", value: "echo" },
+          { name: "Obsession", value: "obsession" },
+          { name: "Tension", value: "tension" },
+          { name: "Betrayal", value: "betrayal" }
+        )
     );
   }
   return builder.toJSON();
@@ -222,6 +409,7 @@ async function registerCommands() {
     console.log("✅ Commands registered successfully.");
   } catch (err) {
     console.error("❌ Failed to register commands:", err);
+    throw err;
   }
 }
 
@@ -229,6 +417,23 @@ async function registerCommands() {
 client.once("ready", () => {
   console.log(`🌙 Lunar Consort ONLINE as ${client.user.tag}`);
 });
+
+// SAFE REPLY HELPER — avoids unhandled rejections on fallback errors
+function safeReply(interaction, payload) {
+  if (interaction.deferred) {
+    return interaction.editReply(payload).catch((err) => {
+      console.error("Failed to editReply:", err);
+    });
+  }
+  if (!interaction.replied) {
+    return interaction.reply(payload).catch((err) => {
+      console.error("Failed to reply:", err);
+    });
+  }
+  return interaction.followUp(payload).catch((err) => {
+    console.error("Failed to followUp:", err);
+  });
+}
 
 // INTERACTION HANDLER
 client.on("interactionCreate", async (interaction) => {
@@ -239,7 +444,7 @@ client.on("interactionCreate", async (interaction) => {
   try {
     // Check cooldown:
     if (checkCooldown(user.id, commandName)) {
-      return interaction.reply({
+      return safeReply(interaction, {
         content: "🌙 The moon needs a moment to breathe… Try again later.",
         ephemeral: true,
       });
@@ -262,61 +467,121 @@ client.on("interactionCreate", async (interaction) => {
       case "expose":
       case "resent":
       case "linger":
+      case "haunt":
+      case "curse":
+      case "worship":
         targetUser = interaction.options.getUser("target");
         if (!targetUser) {
-          return interaction.reply({
+          return safeReply(interaction, {
             content: "🌙 This command needs a target.",
             ephemeral: true,
           });
         }
         data = getUser(user.id);
+        if (statMap[commandName]) {
+          data = incrementStat(user.id, statMap[commandName]);
+        }
 
-        // Stat mapping
-        const statMap = {
-          miss: "longing",
-          remember: "memory",
-          yearn: "obsession",
-          fade: "distance",
-          ignore: "silence",
-          accuse: "tension",
-          betray: "betrayal",
-        };
-        if (statMap[commandName]) data[statMap[commandName]]++;
-
-        return interaction.reply({
+        return safeReply(interaction, {
           content: targetUser.toString(),
           embeds: [makeEmbed(getReply(commandName, user, targetUser))],
           allowedMentions: { users: [targetUser.id] },
         });
 
       case "slap":
+      case "kill":
         targetUser = interaction.options.getUser("target");
         if (!targetUser) {
-          return interaction.reply({
-            content: "🌙 /slap requires a target user.",
+          return safeReply(interaction, {
+            content: `🌙 /${commandName} requires a target user.`,
             ephemeral: true,
           });
         }
-        return interaction.reply({
+        return safeReply(interaction, {
           content: targetUser.toString(),
-          embeds: [makeEmbed(getReply("slap", user, targetUser))],
+          embeds: [makeEmbed(getReply(commandName, user, targetUser))],
           allowedMentions: { users: [targetUser.id] },
         });
 
+      case "random": {
+        targetUser = interaction.options.getUser("target");
+        if (!targetUser) {
+          return safeReply(interaction, {
+            content: "🌙 /random requires a target user.",
+            ephemeral: true,
+          });
+        }
+        const chosenType = pick(randomActionTypes);
+        if (statMap[chosenType]) {
+          data = incrementStat(user.id, statMap[chosenType]);
+        }
+        return safeReply(interaction, {
+          content: targetUser.toString(),
+          embeds: [makeEmbed(getReply(chosenType, user, targetUser))],
+          allowedMentions: { users: [targetUser.id] },
+        });
+      }
+
+      case "top": {
+        const statChoice = interaction.options.getString("stat") || "total";
+        const entries = Array.from(memory.entries())
+          .map(([id, stats]) => ({
+            id,
+            value:
+              statChoice === "total"
+                ? Object.values(stats).reduce((sum, n) => sum + n, 0)
+                : stats[statChoice] ?? 0,
+          }))
+          .filter((entry) => entry.value > 0)
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 10);
+
+        if (entries.length === 0) {
+          return safeReply(interaction, {
+            embeds: [makeEmbed("🌑 The moon has nothing to show. No tales have been written yet.")],
+          });
+        }
+
+        const rankEmojis = ["🥇", "🥈", "🥉"];
+        const lines = entries.map((entry, i) => {
+          const rankLabel = rankEmojis[i] || `**${i + 1}.**`;
+          return `${rankLabel} <@${entry.id}> — **${entry.value}**`;
+        });
+
+        const statLabel =
+          statChoice === "total"
+            ? "Total Lunar Score"
+            : statChoice.charAt(0).toUpperCase() + statChoice.slice(1);
+
+        return safeReply(interaction, {
+          embeds: [
+            new EmbedBuilder()
+              .setTitle(`🌙 Hall of the Moonbound — ${statLabel}`)
+              .setDescription(lines.join("\n"))
+              .setFooter({ text: moonFooter() })
+              .setTimestamp()
+              .setColor("#4A4A6B"),
+          ],
+        });
+      }
+
       case "echo":
-        return interaction.reply({
+        return safeReply(interaction, {
           embeds: [makeEmbed(getReply("echo", user, null))],
         });
 
       case "profile":
         targetUser = interaction.options.getUser("user") || user;
         data = getUser(targetUser.id);
-        return interaction.reply({
+        const total = Object.values(data).reduce((sum, n) => sum + n, 0);
+        return safeReply(interaction, {
           embeds: [
             new EmbedBuilder()
               .setTitle(`🌙 Lunar Profile: ${targetUser.username}`)
               .setDescription(
-`Longing: **${data.longing}**
+`Title: **${getMoonTitle(total)}**
+
+Longing: **${data.longing}**
 Memory: **${data.memory}**
 Distance: **${data.distance}**
 Silence: **${data.silence}**
@@ -325,14 +590,14 @@ Obsession: **${data.obsession}**
 Tension: **${data.tension}**
 Betrayal: **${data.betrayal}**`
               )
-              .setFooter({ text: "🕯️ The moon remembers everything." })
+              .setFooter({ text: moonFooter() })
               .setTimestamp()
               .setColor("#4A4A6B"),
           ],
         });
 
       case "help":
-        return interaction.reply({
+        return safeReply(interaction, {
           embeds: [
             makeEmbed(
 `🌙 **Lunar Consort Help** — A dark tale told under moonlight.
@@ -348,14 +613,20 @@ Betrayal: **${data.betrayal}**`
 • /accuse @user — Tension rises.
 • /betray @user — Trust shatters.
 • /slap @user — Strike with gothic weapon.
+• /kill @user — End someone with a gothic weapon, dramatically.
+• /random @user — Let the moon choose your fate with them at random.
 • /echo — A haunting whisper (no target).
 • /confess @user — Speak hidden truths.
 • /expose @user — Secrets unveiled.
 • /resent @user — Quiet bitterness.
 • /linger @user — Thoughts that refuse to leave.
-• /profile [user] — View your or others’ lunar stats.
+• /haunt @user — Linger unseen at someone's side.
+• /curse @user — Whisper a quiet curse upon them.
+• /worship @user — Devote yourself to someone, reverently.
+• /profile [user] — View your or others’ lunar stats and title.
 • /fortune — Seek the moon’s dark prophecy.
 • /reset — Clear your lunar profile.
+• /top [stat] — View the Hall of the Moonbound leaderboard.
 
 🌙 Most commands require mentioning a user.`
             ),
@@ -363,36 +634,49 @@ Betrayal: **${data.betrayal}**`
         });
 
       case "fortune":
-        return interaction.reply({
+        return safeReply(interaction, {
           embeds: [makeEmbed(pick(fortunes))],
         });
 
       case "reset":
         data = getUser(user.id);
         Object.keys(data).forEach((key) => (data[key] = 0));
-        return interaction.reply({
+        saveData();
+        return safeReply(interaction, {
           content: "🌙 Your lunar profile has been reset to nothingness.",
           ephemeral: true,
         });
 
       default:
-        return interaction.reply({
+        return safeReply(interaction, {
           content: "🌙 Unknown command...",
           ephemeral: true,
         });
     }
   } catch (error) {
     console.error(error);
-    if (!interaction.replied) {
-      interaction.reply({
-        content: "🌙 The system flickered… try again.",
-        ephemeral: true,
-      });
-    }
+    safeReply(interaction, {
+      content: "🌙 The system flickered… try again.",
+      ephemeral: true,
+    });
   }
 });
 
 // REGISTER AND LOGIN
-registerCommands().then(() => {
-  client.login(process.env.DISCORD_TOKEN);
-});
+loadData();
+
+registerCommands()
+  .then(() => client.login(process.env.DISCORD_TOKEN))
+  .catch((err) => {
+    console.error("❌ Startup failed:", err);
+    process.exit(1);
+  });
+
+// GRACEFUL SHUTDOWN — make sure the last write isn't lost on restart/redeploy
+function shutdown(signal) {
+  console.log(`🌙 Received ${signal}, saving lunar memory before exit...`);
+  saveData();
+  process.exit(0);
+}
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
