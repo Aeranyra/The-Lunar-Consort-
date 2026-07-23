@@ -1,4 +1,5 @@
 require("dotenv").config();
+const http = require("http");
 const { Client, GatewayIntentBits } = require("discord.js");
 
 const { loadData, saveData } = require("./src/data");
@@ -13,9 +14,25 @@ if (missingEnv.length > 0) {
   process.exit(1);
 }
 
+// DUMMY HTTP SERVER — Discord bots don't need a port, but Render's Web
+// Service tier checks for one to confirm the app is alive. This just
+// answers "ok" so Render's port scan passes; it does nothing else.
+const PORT = process.env.PORT || 3000;
+let botStatus = "starting";
+
+http
+  .createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(`Lunar Consort is ${botStatus}.`);
+  })
+  .listen(PORT, () => {
+    console.log(`🌐 Dummy HTTP server listening on port ${PORT} (for Render's health check)`);
+  });
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once("clientReady", () => {
+  botStatus = "online";
   console.log(`🌙 Lunar Consort ONLINE as ${client.user.tag}`);
 });
 
