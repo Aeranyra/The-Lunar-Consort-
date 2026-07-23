@@ -77,10 +77,10 @@ function buildCommands() {
     .setName("ship")
     .setDescription(commandDescriptions.ship)
     .addUserOption((opt) =>
-      opt.setName("user1").setDescription("First user (defaults to you)").setRequired(false)
+      opt.setName("user1").setDescription("First user").setRequired(true)
     )
     .addUserOption((opt) =>
-      opt.setName("user2").setDescription("Second user").setRequired(true)
+      opt.setName("user2").setDescription("Second user (defaults to you)").setRequired(false)
     )
     .toJSON();
 

@@ -89,8 +89,8 @@ function buildTopEmbed(statChoice) {
 }
 
 async function handleShip(interaction) {
-  const userA = interaction.options.getUser("user1") || interaction.user;
-  const userB = interaction.options.getUser("user2");
+  const userA = interaction.options.getUser("user1");
+  const userB = interaction.options.getUser("user2") || interaction.user;
 
   if (userB.bot || userA.bot) {
     return safeReply(interaction, {
@@ -310,7 +310,7 @@ async function handleInteraction(interaction) {
 • /haunt @user — Linger unseen at someone's side.
 • /curse @user — Whisper a quiet curse upon them.
 • /worship @user — Devote yourself to someone, reverently.
-• /ship @user1 @user2 — See how two souls are bound under the moon.
+• /ship @user1 [@user2] — See how two souls are bound under the moon (user2 defaults to you).
 • /profile [user] — View your or others' lunar stats and title.
 • /fortune — Seek one of ${fortunes.length} dark prophecies the moon may offer.
 • /reset — Clear your lunar profile (asks for confirmation).
